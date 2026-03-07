@@ -182,13 +182,24 @@
             if (mode === 'newGame') {
                 _orig_commandNewGame.call(sceneRef);
             } else {
-                _orig_commandContinue.call(sceneRef);
+                proceedToContinue(sceneRef);
             }
         })
         .catch(function() {
             setLoading(elements.submitBtn, false);
             showError(elements.errorDiv, 'Network error. Please try again.');
         });
+    }
+
+    function proceedToContinue(sceneRef) {
+        var hook = window.ResidencySaveSync && window.ResidencySaveSync.beforeContinue;
+        if (hook) {
+            hook(function() {
+                _orig_commandContinue.call(sceneRef);
+            });
+        } else {
+            _orig_commandContinue.call(sceneRef);
+        }
     }
 
     function showLoginOverlay(mode, sceneRef) {
@@ -226,7 +237,7 @@
 
     Scene_Title.prototype.commandContinue = function() {
         if (hasSession()) {
-            _orig_commandContinue.call(this);
+            proceedToContinue(this);
             return;
         }
         showLoginOverlay('continue', this);
