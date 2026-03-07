@@ -6,6 +6,13 @@
  * Plugin Command: ReportData <moduleId> <action> <outcome> [score]
  * Example: ReportData CE_Q1_FlashPulmEdema AdministerBiPAP correct 100
  *
+ * Plugin Command: SetTelemetryContext <prefix> [variableId]
+ * Sets context for ReportDataFromContext. If variableId given, appends _Q{value+1}.
+ * Example: SetTelemetryContext IronKeep_Sentinel 10
+ *
+ * Plugin Command: ReportDataFromContext <action> <outcome>
+ * Reports using stored context. Map events must call SetTelemetryContext first.
+ *
  * @param baasUrl
  * @desc Supabase project URL (e.g. https://xxxxx.supabase.co). Same as ResidencyAuth.
  * @default
@@ -129,6 +136,36 @@
         );
     }
 
+    var telemetryContext = { prefix: '', variableId: null };
+
+    function getContextModuleId() {
+        if (!telemetryContext.prefix) return '';
+        if (telemetryContext.variableId != null) {
+            var val = 0;
+            if (typeof $gameVariables !== 'undefined' && $gameVariables.value) {
+                val = $gameVariables.value(telemetryContext.variableId) || 0;
+            }
+            return telemetryContext.prefix + '_Q' + (val + 1);
+        }
+        return telemetryContext.prefix;
+    }
+
+    function handleSetTelemetryContext(args) {
+        var prefix = args[0] ? String(args[0]).trim() : '';
+        var variableId = args[1] !== undefined && args[1] !== '' ? parseInt(args[1], 10) : null;
+        if (isNaN(variableId)) variableId = null;
+        telemetryContext = { prefix: prefix, variableId: variableId };
+    }
+
+    function handleReportDataFromContext(args) {
+        var moduleId = getContextModuleId();
+        if (!moduleId) return;
+        var action = args[0] ? String(args[0]).trim() : '';
+        var outcome = args[1] ? String(args[1]).trim() : '';
+        if (!action || !outcome) return;
+        handleReportData([moduleId, action, outcome]);
+    }
+
     function handleReportData(args) {
         if (!sessionStorage.getItem('residency_token')) return;
         if (!BAAS_URL) return;
@@ -156,6 +193,10 @@
     Game_Interpreter.prototype.pluginCommand = function(cmd, args) {
         if (cmd === 'ReportData') {
             handleReportData(args);
+        } else if (cmd === 'SetTelemetryContext') {
+            handleSetTelemetryContext(args);
+        } else if (cmd === 'ReportDataFromContext') {
+            handleReportDataFromContext(args);
         } else {
             _pluginCommand.call(this, cmd, args);
         }
